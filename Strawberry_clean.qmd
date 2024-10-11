@@ -1,0 +1,227 @@
+---
+title: "Strawberry"
+author: "Liwen Yin"
+format: pdf
+editor: visual
+---
+
+
+
+```{r}
+library(knitr)  
+library(kableExtra)
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+```
+
+You can add options to executable code like this
+
+```{r}
+#read data
+strawberry <- read.csv("strawberries25_v3.csv", header = T)
+#check data
+glimpse(strawberry)
+```
+##Data cleaning
+```{r}
+# Remove columns with excessive missing values
+strawberry <- strawberry %>% 
+  filter(Geo.Level== "NATIONAL" | Geo.Level== "STATE")
+strawberry <- strawberry %>%
+  select(-Week.Ending, -Zip.Code, -Watershed, -Region)
+# Fill missing values with 'Unknown'
+strawberry <- strawberry %>%
+  mutate(Ag.District = replace_na(Ag.District, "Unknown"),
+         County = replace_na(County, "Unknown"))
+
+# Convert 'Value' column to numeric and handle non-numeric entries
+library(ggplot2)
+library(naniar)
+gg_miss_var(strawberry) + 
+  labs(title = "Missing Values per Variable")
+strawberry$Value <- as.numeric(str_replace_all(strawberry$Value, ",",""))
+strawberry$CV.... <- as.numeric(strawberry$CV....)
+# Check the structure and summary of cleaned data
+summary(strawberry)
+```
+##census vs survey
+```{r}
+options(scipen = 999)
+straw_cen <- strawberry %>% filter(Program=="CENSUS")
+straw_sur <- strawberry %>% filter(Program=="SURVEY")
+straw_cen <- straw_cen %>%
+  filter(!grepl("COUNTY", Geo.Level))
+```
+
+##Census data
+```{r}
+#non_organic
+straw_organic <- straw_cen %>%
+  filter(grepl("ORGANIC", Data.Item))
+straw_non_organic <- straw_cen %>%
+  filter(!grepl("ORGANIC", Data.Item))
+straw_organic <- straw_organic %>% 
+  separate_wider_delim(  cols = Data.Item,
+                         delim = ", ",
+                         names = c("strawberries",
+                                 "ORGANIC",
+                                 "organic_detail"),
+                         too_many = "merge",
+                         too_few = "align_start"
+                       )
+straw_non_organic <- straw_non_organic %>% 
+  separate_wider_delim(  cols = `Data.Item`,
+                         delim = "-",
+                         names = c("Fruit",
+                                 "Category"),
+                         too_many = "merge",
+                         too_few = "align_start"
+                       )
+straw_non_organic$Category <- straw_non_organic$Category %>% 
+  str_remove_all("OPERATIONS WITH ")
+
+```
+
+```{r}
+#| label: explore straw_cen$Domain & Domain Category
+## remove AREA GROWN and parens 
+## change NOT SPECIFIEC TO TOTAL
+straw_cen <- straw_cen |> rename(size_bracket = `Domain.Category`)
+
+straw_cen$size_bracket <- str_replace(straw_cen$size_bracket, "NOT SPECIFIED", "TOTAL")
+
+straw_cen$size_bracket <- str_replace(straw_cen$size_bracket, "AREA GROWN: ", "")
+```
+
+
+##Survey data
+```{r}
+straw_sur1 <- straw_sur |>  separate_wider_delim(cols = `Data.Item`,
+                                                delim = ", ",
+                                                names = c("straw",
+                                                         "mkt",
+                                                         "measure",
+                                                         "other"
+                                                         ),
+                                                too_many = "merge",
+                                                too_few = "align_start")
+                                                
+                                                  
+straw_sur2 <- straw_sur1 |> separate_wider_delim(cols = "straw", 
+                                                 delim = " - ",
+                                                 names = c("straw",
+                                                           "more"),
+                                                 too_many = "merge",
+                                                 too_few = "align_start"
+                                                 )
+
+rm(straw_sur, straw_sur1)
+shift_loc <- function(df, col_name, dat_name, num_col, num_shift){
+ # browser()
+  col_num = which(colnames(df) == col_name)
+  row_num = which(df[,col_num] == dat_name)  ## calcs a vector of rows
+  
+  for(k in 1:length(row_num)){
+  d = rep(0,num_col) ## storage for items to be moved
+  for(i in 1:num_col){
+    d[i] = df[row_num[k], col_num + i - 1]
+  }
+  for(i in 1:num_col){
+    ra = row_num[k]
+    cb = col_num + i - 1
+    df[ra, cb] <-  NA
+  }
+  for(j in 1:num_col){
+    rc = row_num[k]
+    cd = col_num + j - 1 + num_shift
+    df[rc, cd] = d[j]
+  }
+  }
+ # sprintf("Rows adjusted:")
+  # print("%d",row_num)
+  return(df)
+}
+
+
+
+
+straw_sur2 <- straw_sur2 |> shift_loc("more", "PRICE RECEIVED", 2, 1 )
+
+
+straw_sur2 <- straw_sur2 |> shift_loc("more", "ACRES HARVESTED", 1, 1 )
+
+straw_sur2 <- straw_sur2 |> shift_loc("more", "ACRES PLANTED", 1, 1 )
+
+straw_sur2 <- straw_sur2 |> shift_loc("more", "PRODUCTION", 2, 1 )
+
+straw_sur2 <- straw_sur2 |> shift_loc("more", "YIELD", 2, 1 )
+
+straw_sur2 <- straw_sur2 |> shift_loc("more", "APPLICATIONS", 3, 1 )
+
+straw_sur2 <- straw_sur2 |> shift_loc("more", "TREATED", 3, 1 )
+
+
+# split chemical data
+straw_sur2 <- straw_sur2 %>%
+  extract(
+    col = Domain.Category,             
+    into = c("Type", "Name", "Chemical.Code"),  
+    regex = ".*?, (\\w+): \\((\\w+) = (\\d+)\\)",      
+    remove = TRUE               
+  )
+straw_sur2 <- straw_sur2 |>  separate_wider_delim(cols = Domain,
+                                                delim = ", ",
+                                                names = c("col1",
+                                                         "col2"),
+                                                too_many = "merge",
+                                                too_few = "align_start")
+
+
+```
+
+##look at totals
+```{r}
+survey_d_total <- straw_sur2 |>  filter(col1 == "TOTAL")
+survey_d_chem <- straw_sur2 |>  filter(col1 == "CHEMICAL")
+survey_d_fert <- straw_sur2 |>  filter(col1 == "FERTILIZER")
+### align terms
+survey_d_total <- survey_d_total |> shift_loc("measure", "MEASURED IN $ / CWT", 1, 1 )
+survey_d_total <- survey_d_total |> shift_loc("measure", "MEASURED IN $", 1, 1 )
+survey_d_total <- survey_d_total |> shift_loc("measure", "MEASURED IN CWT", 1, 1 )
+
+survey_d_total <- survey_d_total |> shift_loc("measure", "MEASURED IN TONS", 1, 1 )
+
+
+survey_d_total <- survey_d_total |> shift_loc("measure", "MEASURED IN CWT / ACRE", 1, 1 )
+
+survey_d_total <- survey_d_total |> shift_loc("measure", "MEASURED IN TONS / ACRE", 1, 1 )
+
+
+#### split the mkt column
+
+
+survey_d_total <- survey_d_total |>  
+  separate_wider_delim(cols = mkt,
+                      delim = " - ",
+                      names = c("col3",
+                                "col4"),
+                   too_many = "merge",
+                    too_few = "align_start")
+
+```
+
+
+#Group by state
+```{r}
+straw_sur_calnif <- straw_sur2 %>%
+  filter(straw_sur2$State=="CALIFORNIA")
+straw_sur_florida <- straw_sur2 %>%
+  filter(straw_sur2$State=="FLORIDA")
+straw_nono_calnif <- straw_non_organic %>%
+  filter(straw_non_organic$State=="CALIFORNIA")
+straw_nono_florida <- straw_non_organic %>%
+  filter(straw_non_organic$State=="FLORIDA")
+
+```
+
