@@ -214,6 +214,19 @@ survey_d_total <- survey_d_total |>
 
 #Group by state
 ```{r}
+library(dplyr)
+survey_ca_chem <- survey_d_chem |> 
+  filter(State == "CALIFORNIA")
+survey_flo_chem <- survey_d_chem |> 
+  filter(State == "FLORIDA")
+survey_ca_chem <- survey_ca_chem %>%
+  filter(!is.na(Value)) %>% 
+  select(-State.ANSI,-Ag.District,-Ag.District.Code,-County.ANSI,-County,-watershed_code,-more,-other,-CV....)
+survey_flo_chem <- survey_flo_chem %>%
+  filter(!is.na(Value)) %>% 
+  select(-State.ANSI,-Ag.District,-Ag.District.Code,-County.ANSI,-County,-watershed_code,-more,-other,-CV....)
+
+
 straw_sur_calnif <- straw_sur2 %>%
   filter(straw_sur2$State=="CALIFORNIA")
 straw_sur_florida <- straw_sur2 %>%
@@ -223,5 +236,15 @@ straw_nono_calnif <- straw_non_organic %>%
 straw_nono_florida <- straw_non_organic %>%
   filter(straw_non_organic$State=="FLORIDA")
 
+```
+
+```{r}
+# Output as csv files
+write.csv(straw_sur_calnif, "straw_sur_calnif.csv", row.names = FALSE)
+write.csv(straw_sur_florida, "straw_sur_florida.csv", row.names = FALSE)
+write.csv(straw_nono_calnif, "straw_nono_calnif.csv", row.names = FALSE)
+write.csv(straw_nono_florida, "straw_nono_florida.csv", row.names = FALSE)
+write.csv(survey_ca_chem, "survey_ca_chem.csv", row.names = FALSE)
+write.csv(survey_flo_chem, "survey_flo_chem.csv", row.names = FALSE)
 ```
 
