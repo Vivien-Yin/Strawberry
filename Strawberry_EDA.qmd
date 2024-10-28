@@ -270,3 +270,16 @@ ggplot(flo_yearly_avg, aes(x = Name,
 
 These two graphs illustrate the average chemical values across different years (2018, 2019, 2021, and 2023) for various chemical names used in California and Florida. Both graphs provide insights into the changes in chemical usage over time in each state. For the graph of California, there is a significant spike in the average value in 2023 for some chemicals, particularly for chemicals labeled as “NA.” This spike is much higher compared to other chemicals in the previous years. For most chemicals, the values in 2018, 2019, and 2021 are relatively stable, with slight variations. Apart from the “NA” spike in 2023, the average values for most chemicals are quite low, which suggests relatively consistent chemical usage with minimal fluctuations in most years. Unlike California, Florida shows more balanced fluctuations across the years. There are visible peaks and drops in different chemicals across all the years. Chemicals like “CAPTAN” and “THIRAM” show substantial changes in their average values over the years. And Florida demonstrates more year-to-year variability, with the chemical values having more pronounced changes compared to California.
 There are also some types of chemicals such as ABAMECTIN, ACETAMIPRID, AZOXYSTROBIN, BIFENAZATE and BIFENTHRIN are not used in Florida in 2018, but all types of chemicals are used in Clorida during all 4 years.
+
+```{r}
+library(tidyverse)
+library(tabulapdf)
+table1 <- extract_tables(
+  file = "Rajveer Kaur, et al.pdf", 
+  pages = 1891,                     
+  area = list(c(72, 72, 540, 790)), 
+  method = "stream",                
+  guess = FALSE,                   
+  output = "tibble")
+```
+This chunk should extract a pdf with Classification of pesticides using in strawberries. However, due to the version of my Mac, it doesn't show up.
